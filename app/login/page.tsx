@@ -54,7 +54,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signIn(selectedProvider, { callbackUrl: "/dashboard" });
-    } catch (err) {
+    } catch {
       setError("Failed to sign in. Please try again.");
     } finally {
       setIsLoading(false);

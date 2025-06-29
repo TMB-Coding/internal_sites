@@ -83,14 +83,6 @@ export const employeeOperations = {
     return { ...employee, id: 0 };
   },
 
-  async update(
-    id: number,
-    employee: Partial<Employee>
-  ): Promise<Employee | null> {
-    // TODO: Implement actual database update
-    return null;
-  },
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async delete(id: number): Promise<boolean> {
     // TODO: Implement actual database delete
