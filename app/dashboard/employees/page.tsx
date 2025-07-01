@@ -37,12 +37,28 @@ import {
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { Department, Employee, PayStructure } from "@prisma/client";
 
+type EditableEmployee = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  employeeId: string;
+  department: string;
+  hireDate: string;
+  birthDate: string;
+  payStructure: string;
+};
+
 export default function EmployeeManagement() {
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [payStructures, setPayStructures] = useState<PayStructure[]>([]);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editEmployee, setEditEmployee] = useState<EditableEmployee | null>(
+    null
+  );
 
   useEffect(() => {
     async function queryPayStructures() {
@@ -111,6 +127,73 @@ export default function EmployeeManagement() {
 
   const handleDeleteEmployee = (id: string) => {
     setEmployees(employees.filter((emp) => emp.id !== id));
+  };
+
+  const openEditDialog = (
+    emp: Employee & { payStructure?: { id: string } }
+  ) => {
+    // Parse name as 'Last, First'
+    let firstName = "";
+    let lastName = "";
+    if (emp.name && emp.name.includes(", ")) {
+      [lastName, firstName] = emp.name.split(", ").map((s: string) => s.trim());
+    }
+    let hireDate = "";
+    if (emp.hireDate instanceof Date) {
+      hireDate = emp.hireDate.toISOString().slice(0, 10);
+    } else if (typeof emp.hireDate === "string" && emp.hireDate) {
+      hireDate = (emp.hireDate as string).slice(0, 10);
+    }
+    let birthDate = "";
+    if (emp.birthdate instanceof Date) {
+      birthDate = emp.birthdate.toISOString().slice(0, 10);
+    } else if (typeof emp.birthdate === "string" && emp.birthdate) {
+      birthDate = (emp.birthdate as string).slice(0, 10);
+    }
+    setEditEmployee({
+      id: emp.id,
+      firstName,
+      lastName,
+      email: emp.email,
+      employeeId: emp.employeeId?.toString() || "",
+      department: emp.department?.toString() || "",
+      hireDate,
+      birthDate,
+      payStructure: emp.payStructureId || emp.payStructure?.id || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditEmployee = async () => {
+    if (!editEmployee) return;
+    try {
+      const req = await fetch("/api/employee", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: editEmployee.id,
+          firstName: editEmployee.firstName,
+          lastName: editEmployee.lastName,
+          email: editEmployee.email,
+          employeeId: editEmployee.employeeId,
+          department: editEmployee.department,
+          hireDate: editEmployee.hireDate,
+          birthDate: editEmployee.birthDate,
+          payStructure: editEmployee.payStructure,
+        }),
+      });
+      if (req.status !== 200) {
+        alert("An error occurred updating the employee. Please try again.");
+        return;
+      }
+      setIsEditDialogOpen(false);
+      setEditEmployee(null);
+      window.location.reload();
+    } catch {
+      alert("An error occurred updating the employee. Please try again.");
+    }
   };
 
   return (
@@ -312,7 +395,12 @@ export default function EmployeeManagement() {
                   <TableCell>{emp.hireDate.toString()}</TableCell>
                   {/*  <TableCell>{emp.status}</TableCell> */}
                   <TableCell className="text-right">
-                    <Button variant="outline" size="icon" className="mr-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="mr-2"
+                      onClick={() => openEditDialog(emp)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
@@ -329,6 +417,149 @@ export default function EmployeeManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Employee</DialogTitle>
+            <DialogDescription>
+              Update the employee information below.
+            </DialogDescription>
+          </DialogHeader>
+          {editEmployee && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editFirstName">First Name</Label>
+                  <Input
+                    id="editFirstName"
+                    value={editEmployee.firstName}
+                    onChange={(e) =>
+                      setEditEmployee({
+                        ...editEmployee,
+                        firstName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editLastName">Last Name</Label>
+                  <Input
+                    id="editLastName"
+                    value={editEmployee.lastName}
+                    onChange={(e) =>
+                      setEditEmployee({
+                        ...editEmployee,
+                        lastName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editEmail">Email</Label>
+                  <Input
+                    id="editEmail"
+                    type="email"
+                    value={editEmployee.email}
+                    onChange={(e) =>
+                      setEditEmployee({
+                        ...editEmployee,
+                        email: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editDepartment">Department</Label>
+                  <Select
+                    value={editEmployee.department}
+                    onValueChange={(value) =>
+                      setEditEmployee({ ...editEmployee, department: value })
+                    }
+                  >
+                    <SelectTrigger id="editDepartment">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(Department).map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editEmployeeId">Employee ID</Label>
+                  <Input
+                    id="editEmployeeId"
+                    value={editEmployee.employeeId}
+                    onChange={(e) =>
+                      setEditEmployee({
+                        ...editEmployee,
+                        employeeId: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPayStructure">Pay Structure</Label>
+                <Select
+                  value={editEmployee.payStructure}
+                  onValueChange={(value) =>
+                    setEditEmployee({ ...editEmployee, payStructure: value })
+                  }
+                >
+                  <SelectTrigger id="editPayStructure" className="w-full">
+                    <SelectValue placeholder="Select Pay Structure" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payStructures.map((struct) => (
+                      <SelectItem key={struct.id} value={struct.id!}>
+                        {struct.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editHireDate">Hire Date</Label>
+                <Input
+                  id="editHireDate"
+                  type="date"
+                  value={editEmployee.hireDate}
+                  onChange={(e) =>
+                    setEditEmployee({
+                      ...editEmployee,
+                      hireDate: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editBirthDate">Birth Date</Label>
+                <Input
+                  id="editBirthDate"
+                  type="date"
+                  value={editEmployee.birthDate}
+                  onChange={(e) =>
+                    setEditEmployee({
+                      ...editEmployee,
+                      birthDate: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <Button onClick={handleEditEmployee}>Save Changes</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

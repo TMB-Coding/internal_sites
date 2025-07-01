@@ -86,3 +86,92 @@ export async function GET() {
     );
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const {
+      id,
+      firstName,
+      lastName,
+      email,
+      employeeId,
+      department,
+      hireDate,
+      birthDate,
+      payStructure,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Employee id is required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate required fields
+    if (
+      !firstName ||
+      !lastName ||
+      !employeeId ||
+      !payStructure ||
+      !department ||
+      !hireDate ||
+      !birthDate
+    ) {
+      return NextResponse.json(
+        { error: "All fields are required" },
+        { status: 400 }
+      );
+    }
+
+    // Check if employee exists
+    const existingEmployee = await prisma.employee.findUnique({
+      where: { id },
+    });
+    if (!existingEmployee) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check for email uniqueness if email is being changed
+    if (email && email !== existingEmployee.email) {
+      const emailExists = await prisma.employee.findUnique({
+        where: { email },
+      });
+      if (emailExists) {
+        return NextResponse.json(
+          { error: "Employee with this email already exists" },
+          { status: 409 }
+        );
+      }
+    }
+
+    const updatedEmployee = await prisma.employee.update({
+      where: { id },
+      data: {
+        name: `${lastName}, ${firstName}`,
+        email,
+        employeeId: parseFloat(employeeId),
+        payStructure: {
+          connect: {
+            id: payStructure,
+          },
+        },
+        department: department.toUpperCase(),
+        hireDate: new Date(hireDate),
+        birthdate: new Date(birthDate),
+      },
+    });
+
+    return NextResponse.json(updatedEmployee, { status: 200 });
+  } catch (error) {
+    console.error("Error updating employee:", error);
+    return NextResponse.json(
+      { error: "Failed to update employee" },
+      { status: 500 }
+    );
+  }
+}
